@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:geo_gio/core/map_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
-import 'package:geo_gio/config.dart';
+import 'package:geo_gio/misc/config.dart';
 
 var logger = Logger();
 
@@ -67,10 +67,7 @@ class RegisterScreenState extends State<RegisterScreen> {
         'password': encryptedPassword,
       }),
     );
-
     if (response.statusCode == 200) {
-      // Registro exitoso
-      // Registro exitoso
       final Map<String, dynamic> responseData = json.decode(response.body);
       final String token = responseData['access_token'];
 
@@ -78,6 +75,7 @@ class RegisterScreenState extends State<RegisterScreen> {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', token);
 
+if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Registro exitoso')),
       );
@@ -89,6 +87,7 @@ class RegisterScreenState extends State<RegisterScreen> {
     } else {
       // Registro fallido
       logger.e(json.decode(response.body));
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error en el registro')),
       );

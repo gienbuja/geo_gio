@@ -4,7 +4,10 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geo_gio/core/map_view.dart';
-import 'package:geo_gio/config.dart';
+import 'package:geo_gio/misc/config.dart';
+import 'package:logger/logger.dart';
+
+var logger = Logger();
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,22 +38,22 @@ class LoginScreenState extends State<LoginScreen> {
     final bytes = utf8.encode(_passwordController.text);
     final digest = sha256.convert(bytes);
     final encryptedPassword = digest.toString();
-
-
+    logger.d(bytes.toString());
+    logger.d(digest);
+    logger.d(encryptedPassword);
 
     final response = await http.post(
       Uri.parse('$apiUrl/login'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
+        'accept': 'application/json',
       },
       body: jsonEncode(<String, String>{
         'email': _emailController.text,
         'password': encryptedPassword,
       }),
     );
-
     if (!mounted) return;
-
     if (response.statusCode == 200) {
       // Login ok
       final Map<String, dynamic> responseData = json.decode(response.body);
@@ -59,7 +62,7 @@ class LoginScreenState extends State<LoginScreen> {
       // Guardar el token en SharedPreferences
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', token);
-
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => MapView()),
