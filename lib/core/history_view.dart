@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geo_gio/misc/config.dart';
 import 'package:logger/logger.dart';
 
+
 var logger = Logger();
 
 class HistoryView extends StatefulWidget {
@@ -95,6 +96,28 @@ class HistoryViewState extends State<HistoryView> {
     }
   }
 
+  void _filterLocationsAuto() {
+    final locationsFiltered = _locations
+        .where((location) => location.containsKey('manual') && location['manual'] == false)
+        .toList();
+    setState(() {
+      _locationDataSource = LocationDataSource(locationsFiltered);
+    });
+  }
+  void _filterLocationsManual() {
+    final locationsFiltered = _locations
+        .where((location) => location.containsKey('manual') && location['manual'] == true)
+        .toList();
+    setState(() {
+      _locationDataSource = LocationDataSource(locationsFiltered);
+    });
+  }
+  void _filterLocationsAll() {
+    setState(() {
+      _locationDataSource = LocationDataSource(_locations);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,18 +138,21 @@ class HistoryViewState extends State<HistoryView> {
                   child: PaginatedDataTable(
                     header: Text('Historial'),
                     actions: [
+                      // IconButton(
+                        
+                      //   icon: Icon(Icons.location_on),
+                      //   onPressed: _filterLocationsAuto,
+                      // ),
+                      // IconButton(
+                      //   icon: Icon(Icons.pin_drop),
+                      //   onPressed: _filterLocationsManual,
+                      // ),
+                      // IconButton(
+                      //   icon: Icon(Icons.location_searching),
+                      //   onPressed: _filterLocationsAll,
+                      // ),
                       IconButton(
-                        icon: Icon(Icons.refresh),
-                        onPressed: _fetchLocations,
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.filter_list),
-                        onPressed: () {
-                          // Add filter functionality here
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.map),
+                        icon: Icon(Icons.date_range),
                         onPressed: _selectDateRange,
                       ),
                     ],
@@ -136,7 +162,7 @@ class HistoryViewState extends State<HistoryView> {
                       DataColumn(label: Text('Fecha y Hora')),
                     ],
                     source: _locationDataSource,
-                    rowsPerPage: rowsPerPage-1,
+                    rowsPerPage: rowsPerPage - 1,
                     columnSpacing: 20,
                     horizontalMargin: 10,
                     showCheckboxColumn: false,

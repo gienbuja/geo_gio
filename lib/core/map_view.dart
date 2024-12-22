@@ -15,6 +15,7 @@ import 'package:geofence_foreground_service/exports.dart' as geofence;
 import 'package:geofence_foreground_service/geofence_foreground_service.dart';
 import 'package:geofence_foreground_service/models/zone.dart';
 import 'package:geofence_foreground_service/constants/geofence_event_type.dart';
+import 'package:geo_gio/misc/database_helper.dart';
 
 var logger = Logger();
 
@@ -100,6 +101,7 @@ class MapViewState extends State<MapView> {
     _determinePosition();
     _initializeNotifications();
     _startManualLocationTimer();
+    _startSyncTimer();
   }
 
   Future<void> initPlatformState() async {
@@ -272,62 +274,39 @@ class MapViewState extends State<MapView> {
             TextButton(
               child: Text('Enviar'),
               onPressed: () async {
-                final SharedPreferences prefs =
-                    await SharedPreferences.getInstance();
-                final String? token = prefs.getString('access_token');
                 String dateText = dateController.text;
                 String timeText = timeController.text;
                 DateTime localDateTime =
                     DateFormat("yyyy-MM-dd HH:mm").parse("$dateText $timeText");
                 String utcDateTime = localDateTime.toUtc().toString();
-                final response = await http.post(
-                  Uri.parse('$apiUrl/locations'),
-                  headers: <String, String>{
-                    'Content-Type': 'application/json; charset=UTF-8',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer $token',
-                  },
-                  body: jsonEncode(<String, dynamic>{
-                    'latitude': location.latitude,
-                    'longitude': location.longitude,
-                    'title': titleController.text,
-                    'description': descriptionController.text,
-                    'icon': selectedIcon,
-                    'datetime': utcDateTime,
-                    'manual': true,
-                  }),
-                );
-                if (response.statusCode == 201) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Datos enviados exitosamente')),
-                  );
-                  _lastManualLocationTime = DateTime.now();
-                  _startManualLocationTimer();
-                  final savedLocation = json.decode(response.body);
-                  setState(() {
-                    _markers.add(
-                      Marker(
-                        markerId: MarkerId(savedLocation['id'].toString()),
-                        position: LatLng(savedLocation['latitude'],
-                            savedLocation['longitude']),
-                        visible: true,
-                        icon: _getIconFromString(selectedIcon),
-                        infoWindow: InfoWindow(
-                          title: savedLocation['title'],
-                          snippet: savedLocation['description'],
-                        ),
+                final savedLocation = {
+                  'latitude': location.latitude,
+                  'longitude': location.longitude,
+                  'title': titleController.text,
+                  'description': descriptionController.text,
+                  'icon': selectedIcon,
+                  'datetime': utcDateTime,
+                  'manual': true,
+                };
+                await DatabaseHelper().insertLocation(savedLocation);
+
+                setState(() {
+                  _markers.add(
+                    Marker(
+                      markerId: MarkerId(savedLocation['id'].toString()),
+                      position: LatLng(savedLocation['latitude'] as double,
+                          savedLocation['longitude'] as double),
+                      visible: true,
+                      icon: _getIconFromString(selectedIcon),
+                      infoWindow: InfoWindow(
+                        title: savedLocation['title'] as String?,
+                        snippet: savedLocation['description'] as String?,
                       ),
-                    );
-                  });
-                  Navigator.of(context).pop();
-                } else {
-                  logger.e(json.decode(response.body));
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error al enviar los datos')),
+                    ),
                   );
-                }
+                });
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
               },
             ),
           ],
@@ -439,42 +418,20 @@ class MapViewState extends State<MapView> {
               TextButton(
                 child: Text('Guardar'),
                 onPressed: () async {
-                  final SharedPreferences prefs =
-                      await SharedPreferences.getInstance();
-                  final String? token = prefs.getString('access_token');
+                  final zone = {
+                    'latitude': location.latitude,
+                    'longitude': location.longitude,
+                    'name': titleController.text,
+                    'radius': double.parse(radiusController.text),
+                    'description': descriptionController.text,
+                    'color': color,
+                  };
+                  await DatabaseHelper().insertZone(zone);
+                  zones.add(zone);
+                  _setZones();
 
-                  final response = await http.post(
-                    Uri.parse('$apiUrl/zones'),
-                    headers: <String, String>{
-                      'Content-Type': 'application/json; charset=UTF-8',
-                      'Accept': 'application/json',
-                      'Authorization': 'Bearer $token',
-                    },
-                    body: jsonEncode(<String, dynamic>{
-                      'latitude': location.latitude,
-                      'longitude': location.longitude,
-                      'name': titleController.text,
-                      'radius': double.parse(radiusController.text),
-                      'description': descriptionController.text,
-                      'color': color,
-                    }),
-                  );
-                  if (response.statusCode == 201) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Datos enviados exitosamente')),
-                    );
-                    final savedZone = json.decode(response.body);
-                    zones.add(savedZone);
-                    _setZones();
-                    Navigator.of(context).pop();
-                  } else {
-                    logger.e(json.decode(response.body));
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error al enviar los datos')),
-                    );
-                  }
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
                 },
               ),
             ],
@@ -685,36 +642,60 @@ class MapViewState extends State<MapView> {
   }
 
   Future<void> _savePosition(Position position) async {
+    final location = {
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+      'datetime': DateTime.now().toUtc().toString(),
+      'manual': 0,
+    };
+    await DatabaseHelper().insertLocation(location);
+  }
+
+  void _startSyncTimer() {
+    Timer.periodic(Duration(minutes: 1), (timer) async {
+      await _syncData();
+    });
+  }
+
+  Future<void> _syncData() async {
+    final dbHelper = DatabaseHelper();
+    final unsyncedLocations = await dbHelper.getUnsyncedLocations();
+    final unsyncedZones = await dbHelper.getUnsyncedZones();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('access_token');
-    final response = await http.post(
-      Uri.parse('$apiUrl/locations'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(<String, dynamic>{
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'datetime': DateTime.now().toUtc().toString(),
-        'manual': false,
-      }),
-    );
-    if (response.statusCode == 201) {
-      logger.i(json.decode(response.body));
-      setState(() {
-        final polyline = polylines.firstWhere(
-          (polyline) => polyline.polylineId.value == 'locations',
-          orElse: () => Polyline(polylineId: PolylineId('locations'), points: []),
-        );
-        setState(() {
-          polyline.points.add(LatLng(position.latitude, position.longitude));
-          polylines.add(polyline);
-        });
-      });
-    } else {
-      logger.e(json.decode(response.body));
+    
+    for (var zone in unsyncedZones) {
+      final response = await http.post(
+        Uri.parse('$apiUrl/zones'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(zone),
+      );
+      if (response.statusCode == 201) {
+        await dbHelper.deleteZone(zone['id']);
+      } else {
+        logger.e('Error al sincronizar zona: ${response.body}');
+      }
+    }
+
+    for (var location in unsyncedLocations) {
+      final response = await http.post(
+        Uri.parse('$apiUrl/locations'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(location),
+      );
+      if (response.statusCode == 201) {
+        await dbHelper.deleteLocation(location['id']);
+      } else {
+        logger.e('Error al sincronizar ubicación: ${response.body}');
+      }
     }
   }
 
