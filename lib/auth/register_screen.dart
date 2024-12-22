@@ -75,7 +75,7 @@ class RegisterScreenState extends State<RegisterScreen> {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', token);
 
-if (!mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Registro exitoso')),
       );

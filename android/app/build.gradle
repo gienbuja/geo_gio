@@ -9,10 +9,10 @@ android {
     namespace = "com.example.geo_gio"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
@@ -28,6 +28,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        minSdkVersion 29
     }
 
     buildTypes {
@@ -37,6 +38,12 @@ android {
             signingConfig = signingConfigs.debug
         }
     }
+
+    dependencies {
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
+        implementation 'org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable:2.1.0'
+    }
+    
 }
 
 flutter {

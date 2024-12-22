@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 import 'welcome_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Solicitar permisos
+  await Permission.location.request();
+  await Permission.locationAlways.request();
+  await Permission.notification.request();
+
   runApp(MyApp());
 }
 
@@ -12,7 +20,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mi App',
+      title: 'Geolocate Me',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),

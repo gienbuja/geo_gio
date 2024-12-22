@@ -53,7 +53,7 @@ class LoginScreenState extends State<LoginScreen> {
         'password': encryptedPassword,
       }),
     );
-    if (!mounted) return;
+    
     if (response.statusCode == 200) {
       // Login ok
       final Map<String, dynamic> responseData = json.decode(response.body);
@@ -69,6 +69,7 @@ class LoginScreenState extends State<LoginScreen> {
       );
     } else {
       // Login failed
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Usuario o clave incorrecta')),
       );
