@@ -526,9 +526,7 @@ class MapViewState extends State<MapView> {
       },
     );
     if (response.statusCode == 201) {
-      logger.i(json.decode(response.body));
       zones = json.decode(response.body);
-
       _setZones();
     } else {
       if (!mounted) return;
@@ -663,7 +661,7 @@ class MapViewState extends State<MapView> {
     final unsyncedZones = await dbHelper.getUnsyncedZones();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('access_token');
-    
+
     for (var zone in unsyncedZones) {
       final response = await http.post(
         Uri.parse('$apiUrl/zones'),

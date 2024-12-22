@@ -5,7 +5,8 @@ import 'package:geo_gio/auth/login_screen.dart';
 import 'package:geo_gio/auth/register_screen.dart';
 import 'package:geo_gio/core/map_view.dart';
 import 'package:geo_gio/misc/config.dart';
-// import 'dart:convert';
+import 'dart:convert';
+import 'package:sqflite/sqflite.dart';
 
 import 'package:logger/logger.dart';
 
@@ -20,7 +21,8 @@ class WelcomeScreen extends StatefulWidget {
 
 class WelcomeScreenState extends State<WelcomeScreen> {
   bool _isAuthenticated = false;
-  bool _isLoading = false;
+  bool _isLoading = true;
+  Map<String, dynamic>? _userData;
 
   @override
   void initState() {
@@ -41,8 +43,10 @@ class WelcomeScreenState extends State<WelcomeScreen> {
         },
       );
       logger.i(response.body);
+
       if (response.statusCode == 200) {
         setState(() {
+          _userData = json.decode(response.body);
           _isAuthenticated = true;
         });
       }
@@ -60,22 +64,21 @@ class WelcomeScreenState extends State<WelcomeScreen> {
       ),
       body: Center(
         child: _isLoading
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  CircularProgressIndicator(),
-                  SizedBox(height: 10.0),
-                  Text('Cargando...'),
-                ],
-              )
+            ? Center(child: CircularProgressIndicator())
             : _isAuthenticated
                 ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
                       Text(
-                        'Bienvenido de nuevo',
+                        '¡Bienvenido!',
                         style: TextStyle(
                             fontSize: 24.0, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${_userData?['name']}',
+                        style: TextStyle(
+                          fontSize: 24.0,
+                        ),
                       ),
                       SizedBox(height: 20.0),
                       ElevatedButton(
@@ -86,6 +89,33 @@ class WelcomeScreenState extends State<WelcomeScreen> {
                           );
                         },
                         child: Text('Ir al mapa'),
+                      ),
+                      SizedBox(height: 50.0),
+                      Text(
+                        'No eres tu?',
+                        style: TextStyle(
+                          fontSize: 24.0,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () async {
+                          final SharedPreferences prefs =
+                              SharedPreferences.getInstance()
+                                  as SharedPreferences;
+                          prefs.remove('access_token');
+                          final Database db =
+                              await openDatabase('my_database.db');
+                          await db.delete('locations');
+                          await db.delete('zones');
+                          if (context.mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => WelcomeScreen()),
+                            );
+                          }
+                        },
+                        icon: Icon(Icons.logout),
                       ),
                     ],
                   )

@@ -96,27 +96,27 @@ class HistoryViewState extends State<HistoryView> {
     }
   }
 
-  void _filterLocationsAuto() {
-    final locationsFiltered = _locations
-        .where((location) => location.containsKey('manual') && location['manual'] == false)
-        .toList();
-    setState(() {
-      _locationDataSource = LocationDataSource(locationsFiltered);
-    });
-  }
-  void _filterLocationsManual() {
-    final locationsFiltered = _locations
-        .where((location) => location.containsKey('manual') && location['manual'] == true)
-        .toList();
-    setState(() {
-      _locationDataSource = LocationDataSource(locationsFiltered);
-    });
-  }
-  void _filterLocationsAll() {
-    setState(() {
-      _locationDataSource = LocationDataSource(_locations);
-    });
-  }
+  // void _filterLocationsAuto() {
+  //   final locationsFiltered = _locations
+  //       .where((location) => location.containsKey('manual') && location['manual'] == false)
+  //       .toList();
+  //   setState(() {
+  //     _locationDataSource = LocationDataSource(locationsFiltered);
+  //   });
+  // }
+  // void _filterLocationsManual() {
+  //   final locationsFiltered = _locations
+  //       .where((location) => location.containsKey('manual') && location['manual'] == true)
+  //       .toList();
+  //   setState(() {
+  //     _locationDataSource = LocationDataSource(locationsFiltered);
+  //   });
+  // }
+  // void _filterLocationsAll() {
+  //   setState(() {
+  //     _locationDataSource = LocationDataSource(_locations);
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -125,11 +125,8 @@ class HistoryViewState extends State<HistoryView> {
           ? Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
-                // Altura de la fila (ajusta según sea necesario)
                 const double rowHeight = 56.0;
-                // Altura de la cabecera de la tabla
                 const double headerHeight = 56.0;
-                // Calcula el número de filas que caben en el espacio disponible
                 final int rowsPerPage =
                     ((constraints.maxHeight - headerHeight) / rowHeight)
                         .floor();
