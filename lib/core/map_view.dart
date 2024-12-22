@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:geo_gio/misc/config.dart';
+import 'package:geo_gio/core/history_view.dart';
 import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:intl/intl.dart';
@@ -16,8 +17,7 @@ import 'package:geofence_foreground_service/models/zone.dart';
 import 'package:geofence_foreground_service/constants/geofence_event_type.dart';
 
 var logger = Logger();
-List<dynamic> zones = [];
-int? actualZone;
+
 FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
@@ -35,12 +35,12 @@ void callbackDispatcher() async {
   );
   const NotificationDetails platformChannelSpecifics =
       NotificationDetails(android: androidPlatformChannelSpecifics);
+
   GeofenceForegroundService().handleTrigger(
     backgroundTriggerHandler: (zoneID, triggerType) async {
       String zoneName = zoneID.split(' ').skip(1).join(' ');
       if (triggerType == GeofenceEventType.enter) {
-        actualZone = int.parse(zoneID.split(' ').first);
-        logger.i('Entra a zona $zoneName');
+        logger.i('Entra a zona $zoneName ');
         await flutterLocalNotificationsPlugin.show(
           1,
           'Ingresó a zona',
@@ -48,19 +48,17 @@ void callbackDispatcher() async {
           platformChannelSpecifics,
         );
       } else if (triggerType == GeofenceEventType.exit) {
-        actualZone = null;
-        logger.i('Sale de zona $zoneName');
+        logger.i('Sale de zona $zoneName ');
         await flutterLocalNotificationsPlugin.show(
-          1,
+          2,
           'Salió de zona',
           'Has salido de la zona $zoneName',
           platformChannelSpecifics,
         );
       } else if (triggerType == GeofenceEventType.dwell) {
-        actualZone = int.parse(zoneID.split(' ').first);
-        logger.i('Permanece en zona $zoneName');
+        logger.i('Permanece en zona $zoneName ');
         await flutterLocalNotificationsPlugin.show(
-          1,
+          3,
           'Continua en zona',
           'Has permanecido en la zona $zoneName por un tiempo',
           platformChannelSpecifics,
@@ -81,16 +79,18 @@ class MapView extends StatefulWidget {
 }
 
 class MapViewState extends State<MapView> {
+  int _selectedIndex = 0;
   late GoogleMapController mapController;
   final LatLng _center = const LatLng(10.3997, -75.5144);
-  List<Marker> _markers = [];
+  final List<Marker> _markers = [];
   StreamSubscription<Position>? _positionStreamSubscription;
   Timer? _manualLocationTimer;
   DateTime? _lastManualLocationTime;
   Set<Polyline> polylines = {};
   Set<Polygon> polygons = {};
-  Set<Circle> _circles = {};
+  final Set<Circle> _circles = {};
   bool hasServiceStarted = false;
+  List<dynamic> zones = [];
 
   @override
   void initState() {
@@ -687,9 +687,8 @@ class MapViewState extends State<MapView> {
   Future<void> _savePosition(Position position) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('access_token');
-    final url = Uri.parse('$apiUrl/locations');
     final response = await http.post(
-      url,
+      Uri.parse('$apiUrl/locations'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Accept': 'application/json',
@@ -700,10 +699,10 @@ class MapViewState extends State<MapView> {
         'longitude': position.longitude,
         'datetime': DateTime.now().toUtc().toString(),
         'manual': false,
-        'zone_id': actualZone,
       }),
     );
     if (response.statusCode == 201) {
+      logger.i(json.decode(response.body));
       setState(() {
         polylines
             .firstWhere((polyline) => polyline.polylineId.value == 'locations')
@@ -768,6 +767,12 @@ class MapViewState extends State<MapView> {
     });
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -775,68 +780,88 @@ class MapViewState extends State<MapView> {
         title: const Text('Visor de recorrido'),
         backgroundColor: Colors.green[700],
       ),
-      body: GoogleMap(
-        onMapCreated: _onMapCreated,
-        initialCameraPosition: CameraPosition(
-          target: _center,
-          zoom: 5.0,
-        ),
-        polylines: polylines,
-        polygons: polygons,
-        circles: _circles,
-        myLocationEnabled: true,
-        // myLocationButtonEnabled: true,
-        onTap: _onMapTapped,
-        onLongPress: _onMapLongPressed,
-        markers: Set<Marker>.of(_markers),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: <Widget>[
+          GoogleMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _center,
+              zoom: 13.0,
+            ),
+            polylines: polylines,
+            polygons: polygons,
+            circles: _circles,
+            myLocationEnabled: true,
+            onTap: _onMapTapped,
+            onLongPress: _onMapLongPressed,
+            markers: Set<Marker>.of(_markers),
+          ),
+          HistoryView(),
+        ],
       ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.green[700],
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(
-              icon: const Icon(
-                Icons.home,
-                color: Colors.white,
-              ),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(
-                Icons.history,
-                color: Colors.white,
-              ),
-              onPressed: () {},
-            ),
-            const SizedBox(
-              width: 20,
-            ),
-            IconButton(
-              icon: const Icon(
-                Icons.account_circle,
-                color: Colors.white,
-              ),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: const Icon(
-                Icons.settings,
-                color: Colors.white,
-              ),
-              onPressed: () {},
-            ),
-          ],
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Mapa',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Historial',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.amber[800],
+        onTap: _onItemTapped,
       ),
-      floatingActionButton: FloatingActionButton(
-          onPressed: () {},
-          backgroundColor: Colors.amber,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add)),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      //   bottomNavigationBar: BottomAppBar(
+      //     color: Colors.green[700],
+      //     shape: const CircularNotchedRectangle(),
+      //     notchMargin: 6,
+      //     child: Row(
+      //       mainAxisAlignment: MainAxisAlignment.spaceAround,
+      //       children: [
+      //         IconButton(
+      //           icon: const Icon(
+      //             Icons.home,
+      //             color: Colors.white,
+      //           ),
+      //           onPressed: () {},
+      //         ),
+      //         IconButton(
+      //           icon: const Icon(
+      //             Icons.history,
+      //             color: Colors.white,
+      //           ),
+      //           onPressed: () {},
+      //         ),
+      //         const SizedBox(
+      //           width: 20,
+      //         ),
+      //         IconButton(
+      //           icon: const Icon(
+      //             Icons.account_circle,
+      //             color: Colors.white,
+      //           ),
+      //           onPressed: () {},
+      //         ),
+      //         IconButton(
+      //           icon: const Icon(
+      //             Icons.settings,
+      //             color: Colors.white,
+      //           ),
+      //           onPressed: () {},
+      //         ),
+      //       ],
+      //     ),
+      //   ),
+      //   floatingActionButton: FloatingActionButton(
+      //       onPressed: () {},
+      //       backgroundColor: Colors.amber,
+      //       shape: const CircleBorder(),
+      //       child: const Icon(Icons.add)),
+      //   floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }

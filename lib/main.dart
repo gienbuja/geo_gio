@@ -4,7 +4,6 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   // Solicitar permisos
   await Permission.location.request();
   await Permission.locationAlways.request();

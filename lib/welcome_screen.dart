@@ -31,7 +31,6 @@ class WelcomeScreenState extends State<WelcomeScreen> {
   Future<void> _checkAuthentication() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('access_token');
-
     if (token != null) {
       final response = await http.get(
         Uri.parse('$apiUrl/user'),
@@ -47,7 +46,9 @@ class WelcomeScreenState extends State<WelcomeScreen> {
           _isAuthenticated = true;
         });
       }
-      _isLoading = false;
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
