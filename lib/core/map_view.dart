@@ -495,7 +495,7 @@ class MapViewState extends State<MapView> {
       },
     );
 
-    if (response.statusCode == 201) {
+    if (response.statusCode == 200) {
       List<dynamic> locations = json.decode(response.body);
       _setLocations(locations);
     } else {
@@ -704,12 +704,14 @@ class MapViewState extends State<MapView> {
     if (response.statusCode == 201) {
       logger.i(json.decode(response.body));
       setState(() {
-        polylines
-            .firstWhere((polyline) => polyline.polylineId.value == 'locations')
-            .points
-            .add(
-              LatLng(position.latitude, position.longitude),
-            );
+        final polyline = polylines.firstWhere(
+          (polyline) => polyline.polylineId.value == 'locations',
+          orElse: () => Polyline(polylineId: PolylineId('locations'), points: []),
+        );
+        setState(() {
+          polyline.points.add(LatLng(position.latitude, position.longitude));
+          polylines.add(polyline);
+        });
       });
     } else {
       logger.e(json.decode(response.body));

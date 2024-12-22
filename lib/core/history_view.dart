@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geo_gio/misc/config.dart';
+import 'package:logger/logger.dart';
+
+var logger = Logger();
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});
@@ -47,41 +49,46 @@ class HistoryViewState extends State<HistoryView> {
             }).toList();
           });
         } else {
+          logger.e('La respuesta del servidor está vacía.');
           // print('La respuesta del servidor está vacía.');
         }
       } else {
-        // print('Error en la solicitud: ${response.statusCode}');
-        // print('Cuerpo de la respuesta: ${response.body}');
+        logger.e(response.statusCode);
+        logger.e(response.body);
       }
     } catch (e) {
-      // print('Error al obtener las ubicaciones: $e');
+      logger.e('Error al obtener las ubicaciones: $e');
     }
   }
 
-  void _selectDateRange() {
-    DatePicker.showDatePicker(
-      context,
-      showTitleActions: true,
-      onChanged: (date) {},
-      onConfirm: (date) {
-        setState(() {
-          _startDate = date;
-        });
-        DatePicker.showDatePicker(
-          context,
-          showTitleActions: true,
-          onChanged: (date) {},
-          onConfirm: (date) {
-            setState(() {
-              _endDate = date;
-              _fetchLocations();
-            });
-          },
-          currentTime: _endDate,
-        );
-      },
-      currentTime: _startDate,
+  Future<void> _selectDateRange() async {
+    final DateTime? pickedStartDate = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
     );
+
+    if (pickedStartDate != null && pickedStartDate != _startDate) {
+      setState(() {
+        _startDate = pickedStartDate;
+      });
+
+      if (!mounted) return;
+      final DateTime? pickedEndDate = await showDatePicker(
+        context: context,
+        initialDate: _endDate,
+        firstDate: DateTime(2000),
+        lastDate: DateTime(2101),
+      );
+
+      if (pickedEndDate != null && pickedEndDate != _endDate) {
+        setState(() {
+          _endDate = pickedEndDate;
+          _fetchLocations();
+        });
+      }
+    }
   }
 
   @override
