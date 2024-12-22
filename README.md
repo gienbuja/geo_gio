@@ -14,16 +14,24 @@ Antes de iniciar la aplicación, inicie el servidor y cambie la dirección IP qu
 - **Gestión de Datos**: Almacena y elimina datos de ubicación y zonas en una base de datos SQLite.
 - **Cierre de Sesión**: Elimina todos los datos almacenados al cerrar sesión.
 
-## Instalación
+## Uso de aplicación
 
 1. **Descomprime**
 2. **Navega al directorio del proyecto**: cd geo_gio
 3. **Instala las dependencias**: flutter pub get
+4. **Inicia la aplicacion**: flutter run
+5. **Sigue las instrucciones en pantalla para navegar por la aplicación.**
+6. **Un tap para agregar una ubicacion y tap sostenido para agregar una zona.**
 
-## Uso
-1. **Inicia la aplicacion**: flutter run
-2. **Sigue las instrucciones en pantalla para navegar por la aplicación.**
-3. **Un tap para agregar una ubicacion y tap sostenido para agregar una zona.**
+## Inicio del servidor
+
+1. **Descomprime**
+2. **Navega al directorio del servidor**: cd server_geo_gio
+3. **Instala las dependencias javascript**: npm install
+3. **Instala las dependencias composer**: composer install
+4. **Inicia el servidor**: php artisan serve --host=0.0.0.0 --port=8000
+4. **Inicia el servidor de npm (No se requiere)**: npm run dev
+5. **Asegúrate de que el servidor esté corriendo**
 
 
 
