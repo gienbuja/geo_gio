@@ -17,6 +17,7 @@ class HistoryViewState extends State<HistoryView> {
   List<Map<String, dynamic>> _locations = [];
   DateTime _startDate = DateTime.now().subtract(Duration(days: 7));
   DateTime _endDate = DateTime.now();
+  late LocationDataSource _locationDataSource;
 
   @override
   void initState() {
@@ -30,7 +31,8 @@ class HistoryViewState extends State<HistoryView> {
 
     try {
       final response = await http.get(
-        Uri.parse('$apiUrl/locations?start_date=${_startDate.toIso8601String()}&end_date=${_endDate.toIso8601String()}'),
+        Uri.parse(
+            '$apiUrl/locations?start_date=${_startDate.toIso8601String()}&end_date=${_endDate.toIso8601String()}'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
           'Accept': 'application/json',
@@ -42,15 +44,17 @@ class HistoryViewState extends State<HistoryView> {
         if (response.body.isNotEmpty) {
           List<dynamic> locations = json.decode(response.body);
           setState(() {
-            _locations = locations.map((location) => {
-              'latitude': location['latitude'],
-              'longitude': location['longitude'],
-              'datetime': location['datetime'],
-            }).toList();
+            _locations = locations
+                .map((location) => {
+                      'latitude': location['latitude'],
+                      'longitude': location['longitude'],
+                      'datetime': location['datetime'],
+                    })
+                .toList();
+            _locationDataSource = LocationDataSource(_locations);
           });
         } else {
           logger.e('La respuesta del servidor está vacía.');
-          // print('La respuesta del servidor está vacía.');
         }
       } else {
         logger.e(response.statusCode);
@@ -94,35 +98,81 @@ class HistoryViewState extends State<HistoryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Historial de Ubicaciones'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.date_range),
-            onPressed: _selectDateRange,
-          ),
-        ],
-      ),
       body: _locations.isEmpty
           ? Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: DataTable(
-                columns: [
-                  DataColumn(label: Text('Latitud')),
-                  DataColumn(label: Text('Longitud')),
-                  DataColumn(label: Text('Fecha y Hora')),
-                ],
-                rows: _locations.map((location) {
-                  return DataRow(
-                    cells: [
-                      DataCell(Text(location['latitude'].toString())),
-                      DataCell(Text(location['longitude'].toString())),
-                      DataCell(Text(location['datetime'].toString())),
+          : LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                // Altura de la fila (ajusta según sea necesario)
+                const double rowHeight = 56.0;
+                // Altura de la cabecera de la tabla
+                const double headerHeight = 56.0;
+                // Calcula el número de filas que caben en el espacio disponible
+                final int rowsPerPage =
+                    ((constraints.maxHeight - headerHeight) / rowHeight)
+                        .floor();
+
+                return SingleChildScrollView(
+                  child: PaginatedDataTable(
+                    header: Text('Historial'),
+                    actions: [
+                      IconButton(
+                        icon: Icon(Icons.refresh),
+                        onPressed: _fetchLocations,
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.filter_list),
+                        onPressed: () {
+                          // Add filter functionality here
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.map),
+                        onPressed: _selectDateRange,
+                      ),
                     ],
-                  );
-                }).toList(),
-              ),
+                    columns: [
+                      DataColumn(label: Text('Latitud')),
+                      DataColumn(label: Text('Longitud')),
+                      DataColumn(label: Text('Fecha y Hora')),
+                    ],
+                    source: _locationDataSource,
+                    rowsPerPage: rowsPerPage-1,
+                    columnSpacing: 20,
+                    horizontalMargin: 10,
+                    showCheckboxColumn: false,
+                  ),
+                );
+              },
             ),
     );
   }
+}
+
+class LocationDataSource extends DataTableSource {
+  final List<Map<String, dynamic>> _locations;
+
+  LocationDataSource(this._locations);
+
+  @override
+  DataRow getRow(int index) {
+    final location = _locations[index];
+    return DataRow.byIndex(
+      index: index,
+      cells: [
+        DataCell(Text(location['latitude'].toString())),
+        DataCell(Text(location['longitude'].toString())),
+        DataCell(
+            Text(DateTime.parse(location['datetime']).toLocal().toString())),
+      ],
+    );
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+
+  @override
+  int get rowCount => _locations.length;
+
+  @override
+  int get selectedRowCount => 0;
 }
