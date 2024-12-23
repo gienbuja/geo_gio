@@ -656,46 +656,54 @@ class MapViewState extends State<MapView> {
   }
 
   Future<void> _syncData() async {
-    final dbHelper = DatabaseHelper();
-    final unsyncedLocations = await dbHelper.getUnsyncedLocations();
-    final unsyncedZones = await dbHelper.getUnsyncedZones();
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? token = prefs.getString('access_token');
+  final dbHelper = DatabaseHelper();
+  final unsyncedLocations = await dbHelper.getUnsyncedLocations();
+  final unsyncedZones = await dbHelper.getUnsyncedZones();
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final String? token = prefs.getString('access_token');
 
-    for (var zone in unsyncedZones) {
-      final response = await http.post(
-        Uri.parse('$apiUrl/zones'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(zone),
-      );
-      if (response.statusCode == 201) {
-        await dbHelper.deleteZone(zone['id']);
-      } else {
-        logger.e('Error al sincronizar zona: ${response.body}');
-      }
-    }
-
-    for (var location in unsyncedLocations) {
-      final response = await http.post(
-        Uri.parse('$apiUrl/locations'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(location),
-      );
-      if (response.statusCode == 201) {
-        await dbHelper.deleteLocation(location['id']);
-      } else {
-        logger.e('Error al sincronizar ubicación: ${response.body}');
-      }
+  // Sincronizar zonas
+  if (unsyncedZones.isNotEmpty) {
+    final response = await http.post(
+      Uri.parse('$apiUrl/syncZones'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(unsyncedZones),
+    );
+    if (response.statusCode == 201) {
+      // No borrar zonas
+    } else {
+      logger.e('Error al sincronizar zonas: ${response.body}');
     }
   }
+
+  // Sincronizar localizaciones
+  if (unsyncedLocations.isNotEmpty) {
+    final response = await http.post(
+      Uri.parse('$apiUrl/syncLocations'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(unsyncedLocations),
+    );
+    if (response.statusCode == 201) {
+      final today = DateTime.now();
+      for (var location in unsyncedLocations) {
+        final locationDate = DateTime.parse(location['datetime']); 
+        if (locationDate.isBefore(today)) {
+          await dbHelper.deleteLocation(location['id']);
+        }
+      }
+    } else {
+      logger.e('Error al sincronizar ubicaciones: ${response.body}');
+    }
+  }
+}
 
   @override
   void dispose() {
